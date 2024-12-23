@@ -28,36 +28,60 @@ def user_input_features():
 # User inputs
 input_df = user_input_features()
 
-# Load and preprocess dataset
-data = pd.read_csv("ai4i2020.csv")
-data['Air temperature [K]'] -= 273.15  # Convert Kelvin to Celsius
-data['Process temperature [K]'] -= 273.15  # Convert Kelvin to Celsius
+# Upload dataset
+st.sidebar.header("Upload Dataset")
+uploaded_file = st.sidebar.file_uploader("Upload your CSV file", type=["csv"])
 
-# Features and Target
-X = data[['Air temperature [K]', 'Process temperature [K]', 'Rotational speed [rpm]', 'Torque [Nm]', 'Tool wear [min]']]
-y = data['Machine failure']
+if uploaded_file is not None:
+    try:
+        # Read the uploaded file
+        data = pd.read_csv(uploaded_file)
+        st.sidebar.write("Dataset uploaded successfully!")
 
-# Train-test split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        # Ensure required columns exist
+        required_columns = [
+            'Air temperature [K]',
+            'Process temperature [K]',
+            'Rotational speed [rpm]',
+            'Torque [Nm]',
+            'Tool wear [min]',
+            'Machine failure'
+        ]
+        if all(column in data.columns for column in required_columns):
+            # Preprocess data
+            data['Air temperature [K]'] -= 273.15  # Convert Kelvin to Celsius
+            data['Process temperature [K]'] -= 273.15  # Convert Kelvin to Celsius
 
-# Train the model
-rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
-rf_model.fit(X_train, y_train)
+            # Features and Target
+            X = data[required_columns[:-1]]  # All columns except the target
+            y = data['Machine failure']  # Target column
 
-# Save the model
-joblib.dump(rf_model, 'failure_prediction_model.pkl')
+            # Train-test split
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Display user inputs
-st.subheader("User Input Parameters")
-st.write(input_df)
+            # Train the model
+            rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+            rf_model.fit(X_train, y_train)
 
-# Load trained model and make prediction
-try:
-    model = joblib.load("failure_prediction_model.pkl")
-    prediction = model.predict(input_df)
-    if prediction[0] == 1:
-        st.write("⚠️ **Prediction:** High failure risk detected!")
-    else:
-        st.write("✅ **Prediction:** No failure risk detected.")
-except Exception as e:
-    st.error(f"Error: {e}")
+            # Save the model
+            joblib.dump(rf_model, 'failure_prediction_model.pkl')
+
+            st.sidebar.success("Model trained successfully!")
+
+            # Display user inputs
+            st.subheader("User Input Parameters")
+            st.write(input_df)
+
+            # Load trained model and make prediction
+            model = joblib.load("failure_prediction_model.pkl")
+            prediction = model.predict(input_df)
+            if prediction[0] == 1:
+                st.write("⚠️ **Prediction:** High failure risk detected!")
+            else:
+                st.write("✅ **Prediction:** No failure risk detected.")
+        else:
+            st.sidebar.error("The uploaded dataset must contain the required columns.")
+    except Exception as e:
+        st.sidebar.error(f"Error loading dataset: {e}")
+else:
+    st.sidebar.info("Please upload a dataset to train the model.")
